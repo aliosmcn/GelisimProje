@@ -1,81 +1,95 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    private CharacterController controller;
-    private Vector3 direction;
-    public float forwardSpeed;
-
-    private int desiredLane = 1;
-    public float laneDistance = 4;
-
-    public float jumpForce;
-    public float Gravity = -20;
+    private Rigidbody rb;
+    
+    public bool isGrounded = true;
+    public float jumpForce = 5f;
+    public float forwardSpeed = 10f;  
+    public float laneDistance = 3f;    
+    public float laneSwitchSpeed = 10f; 
+    
+    private int currentLane = 0;
+    public Transform startPos;
+    
+    public List<GameObject> carrots;
 
     void Start()
     {
-        controller = GetComponent<CharacterController>();
+        rb = GetComponent<Rigidbody>();
+        Physics.gravity = new Vector3(0, -20f, 0); 
+        Time.timeScale = 1;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        direction.z = forwardSpeed;
+        HandleInput();
+        MoveForward();
+        MoveToLane();
+    }
+
+    void HandleInput()
+    {
+        if (Input.GetKeyDown(KeyCode.LeftArrow) && currentLane > -1)
+        {
+            currentLane--;
+        }
+        else if (Input.GetKeyDown(KeyCode.RightArrow) && currentLane < 1)
+        {
+            currentLane++;
+        }
+
+        if (Input.GetKeyDown(KeyCode.UpArrow) && isGrounded)
+        {
+            Jump();
+        }
+    }
+    void Jump()
+    {
+        isGrounded = false;
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse); 
+    }
+    void MoveForward()
+    {
+        transform.Translate(Vector3.forward * forwardSpeed * Time.deltaTime);
+    }
+
+    void MoveToLane()
+    {
+        float targetX = currentLane * laneDistance;
+        Vector3 newPosition = new Vector3(Mathf.Lerp(transform.position.x, targetX, Time.deltaTime * laneSwitchSpeed),
+            transform.position.y,
+            transform.position.z);
+        transform.position = newPosition;
+    }
+
+    private void OnCollisionEnter(Collision other)
+    {
+        if (other.gameObject.CompareTag("Ground"))
+        {
+            isGrounded = true;
+        }
+
+        if (other.gameObject.CompareTag("Block"))
+        {
+            Time.timeScale = 0;   
+            GameManager.Instance.GameOver();
+            gameObject.transform.position = startPos.position;
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.CompareTag("Carrot"))
+        {
+            GameManager.Instance.SetScore(5);
+            GameManager.Instance.AddCarrot(other.gameObject);
+            other.gameObject.SetActive(false);
+        }
         
-
-        if (controller.isGrounded)
-        {
-            
-            if (Input.GetKeyDown(KeyCode.UpArrow))
-            {
-                Jump();
-            }
-        }
-        else
-        {
-            direction.y += Gravity * Time.deltaTime;
-        }
-
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            desiredLane++;
-            if (desiredLane==3)
-                desiredLane = 2;
-            
-
-        }
-        if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            desiredLane--;
-            if (desiredLane == -1)
-                desiredLane = 0;
-
-
-        }
-
-        Vector3 targetPosition = transform.position.z * transform.forward + transform.position.y * transform.up;
-
-        if (desiredLane == 0)
-        {
-            targetPosition += Vector3.left * laneDistance;
-        }else if (desiredLane == 2)
-        {
-            targetPosition += Vector3.right * laneDistance;
-        }
-
-        transform.position = targetPosition;
-
-    }
-
-    private void FixedUpdate()
-    {
-        controller.Move(direction * Time.fixedDeltaTime);
-    }
-
-    private void Jump()
-    {
-        direction.y = jumpForce;
     }
 }
